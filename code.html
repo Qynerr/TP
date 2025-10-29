@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="tr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Para Takip — Modern</title>
+  <meta name="description" content="Modern, icon destekli para takip uygulaması (localStorage)." />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+  <style>
+    :root{
+      --bg-1:#f8fafc; --bg-2:#eef2ff; --card:#ffffff; --muted:#6b7280; --accent:#7c3aed; --accent-2:#06b6d4;
+      --income:#10b981; --expense:#ef4444; --glass: rgba(2,6,23,0.04);
+      --shadow: 0 10px 30px rgba(2,6,23,0.08);
+      --glass-2: rgba(79,70,229,0.06);
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;font-family:Inter,Segoe UI,Roboto,Arial,sans-serif;background:linear-gradient(180deg,var(--bg-1),var(--bg-2));color:#0b1220}
+    .wrap{max-width:1100px;margin:28px auto;padding:18px}
+    .top{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{font-weight:800;font-size:1.25rem;display:flex;gap:12px;align-items:center}
+    .logo{width:44px;height:44;border-radius:12px;background:linear-gradient(135deg,var(--accent),#4f46e5);display:flex;align-items:center;justify-content:center;color:white;font-weight:800}
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:18px;margin-top:18px}
+    .panel{background:var(--card);padding:14px;border-radius:12px;box-shadow:var(--shadow)}
+    label{font-size:13px;color:var(--muted);display:block;margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px;border-radius:10px;border:1px solid rgba(15,23,42,0.04);background:transparent;color:inherit}
+    input:focus,select:focus,textarea:focus{outline:2px solid rgba(124,58,237,0.12);outline-offset:2px}
+    .row{display:flex;gap:8px}
+    .btn{background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;padding:10px 12px;border-radius:10px;border:0;cursor:pointer;box-shadow:0 6px 18px rgba(79,70,229,0.12)}
+    .secondary{background:transparent;border:1px solid rgba(15,23,42,0.04);color:var(--muted);padding:8px 10px;border-radius:10px}
+    .summary{display:flex;gap:12px;margin-bottom:12px}
+    .card{flex:1;padding:16px;border-radius:12px;background:linear-gradient(180deg,rgba(79,70,229,0.02),transparent);}
+    .big{font-size:1.4rem;font-weight:800}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:10px;text-align:left;border-bottom:1px solid rgba(15,23,42,0.03);font-size:14px}
+    td.amount{font-weight:800}
+    .income{color:var(--income)}.expense{color:var(--expense)}
+    .small{font-size:12px;color:var(--muted)}
+    .controls{display:flex;gap:8px;align-items:center}
+    canvas{width:100%;height:140px;border-radius:10px;background:linear-gradient(180deg,rgba(255,255,255,0.02),transparent)}
+    .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{padding:6px 10px;border-radius:999px;background:rgba(15,23,42,0.03);font-size:13px;cursor:pointer}
+    .chip.active{background:linear-gradient(90deg,var(--accent-2),#7dd3fc);color:#03202a}
+    .row-anim{animation:popIn .26s ease}
+    @keyframes popIn{from{opacity:0;transform:translateY(6px) scale(.99)}to{opacity:1;transform:translateY(0) scale(1)}}
+    @media (max-width:880px){ .layout{grid-template-columns:1fr} .panel{padding:12px} }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div class="brand"><div class="logo">₺</div>Para Takip</div>
+      <div class="small">Modern tasarım • Emoji destekli kategoriler</div>
+    </div>
+
+    <div class="layout">
+      <aside class="panel">
+        <div class="small">Yeni İşlem</div>
+        <div style="margin-top:8px">
+          <label>Açıklama</label>
+          <input id="desc" placeholder="Örn: Market alışverişi" />
+
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <div style="flex:1">
+              <label>Tutar</label>
+              <input id="amount" type="number" step="0.01" placeholder="0.00" />
+            </div>
+            <div style="width:120px">
+              <label>Tür</label>
+              <select id="type"><option value="expense">Gider (-)</option><option value="income">Gelir (+)</option></select>
+            </div>
+          </div>
+
+          <label style="margin-top:8px">Kategori</label>
+          <select id="category"></select>
+
+          <label style="margin-top:8px">Tarih</label>
+          <input id="date" type="date" />
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="addBtn" class="btn">Ekle</button>
+            <button id="clearBtn" class="secondary">Temizle</button>
+          </div>
+
+          <div class="small" style="margin-top:12px">Kategoriler</div>
+          <div id="chips" class="chips"></div>
+
+          <hr style="margin:12px 0;border:none;border-top:1px solid rgba(15,23,42,0.05)" />
+
+          <div class="small">Veri İşlemleri</div>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="exportBtn" class="secondary">Dışa Aktar</button>
+            <button id="importBtn" class="secondary">İçe Aktar</button>
+            <input id="importFile" type="file" accept="application/json" style="display:none" />
+          </div>
+        </div>
+      </aside>
+
+      <main>
+        <div class="panel fade">
+          <div class="summary">
+            <div class="card">
+              <div class="small">Toplam Bakiye</div>
+              <div id="balance" class="big">0.00 ₺</div>
+            </div>
+            <div class="card">
+              <div class="small">Toplam Gelir</div>
+              <div id="totalIncome" class="big income">0.00 ₺</div>
+            </div>
+            <div class="card">
+              <div class="small">Toplam Gider</div>
+              <div id="totalExpense" class="big expense">0.00 ₺</div>
+            </div>
+          </div>
+
+          <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px">
+            <div class="controls">
+              <label class="small">Ara (kategori veya açıklama):</label>
+              <input id="q" placeholder="Ara..." style="width:220px" />
+            </div>
+            <div style="flex:1"></div>
+            <div class="small">Toplam işlem: <span id="count">0</span></div>
+          </div>
+
+          <canvas id="chart" height="140"></canvas>
+
+          <div class="panel" style="margin-top: 12px">
+            <div class="small">Aylık Değişim</div>
+            <canvas id="monthlyChart" height="200"></canvas>
+          </div>
+
+          <div class="panel" style="margin-top: 12px">
+            <div class="small">Yıllık Değişim</div>
+            <canvas id="yearlyChart" height="200"></canvas>
+          </div>
+
+          <div class="panel" style="margin-top: 12px">
+            <table id="txTable">
+              <thead><tr><th>Tarih</th><th>Açıklama</th><th>Kategori</th><th>Miktar</th><th></th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Modernized finance app with emojis and edit support
+    const KEY = 'pt_transactions_v1';
+    let tx = []; let editId = null;
+
+    const CATEGORIES = [
+      {name: 'Genel', icon: 'fas fa-box'},
+      {name: 'Yiyecek', icon: 'fas fa-utensils'},
+      {name: 'Ulaşım', icon: 'fas fa-bus'},
+      {name: 'Kira', icon: 'fas fa-home'},
+      {name: 'Gelir', icon: 'fas fa-briefcase'},
+      {name: 'Market', icon: 'fas fa-shopping-cart'},
+      {name: 'Faturalar', icon: 'fas fa-file-invoice'},
+      {name: 'Diğer', icon: 'fas fa-tag'}
+    ];
+
+    function uid(){return 't_'+Date.now()+'_'+Math.random().toString(36).slice(2,7)}
+    function load(){ try{ tx = JSON.parse(localStorage.getItem(KEY) || '[]') }catch(e){ tx=[] } }
+    function save(){ localStorage.setItem(KEY, JSON.stringify(tx)) }
+
+    // elements
+    const els = {
+      desc: document.getElementById('desc'), amount: document.getElementById('amount'), type: document.getElementById('type'), category: document.getElementById('category'), date: document.getElementById('date'), addBtn: document.getElementById('addBtn'), clearBtn: document.getElementById('clearBtn'),
+      table: document.querySelector('#txTable tbody'), balance: document.getElementById('balance'), income: document.getElementById('totalIncome'), expense: document.getElementById('totalExpense'), q: document.getElementById('q'), count: document.getElementById('count'), chart: document.getElementById('chart'), exportBtn: document.getElementById('exportBtn'), importBtn: document.getElementById('importBtn'), importFile: document.getElementById('importFile'), chips: document.getElementById('chips')
+    }
+
+    // populate categories select and chips
+    function initCategories(){
+      els.category.innerHTML=''; els.chips.innerHTML='';
+      CATEGORIES.forEach(cat=>{
+        const opt = document.createElement('option'); opt.value=cat.name; 
+        opt.innerHTML = `<i class="${cat.icon}"></i> ${cat.name}`; 
+        els.category.appendChild(opt);
+        const chip = document.createElement('div'); 
+        chip.className='chip'; 
+        chip.innerHTML = `<i class="${cat.icon}"></i> ${cat.name}`; 
+        chip.dataset.cat=cat.name; 
+        chip.addEventListener('click', ()=>{ 
+          document.getElementById('q').value = cat.name; 
+          render(); 
+          Array.from(document.querySelectorAll('.chip')).forEach(c=>c.classList.remove('active')); 
+          chip.classList.add('active'); 
+        }); 
+        els.chips.appendChild(chip);
+      });
+    }
+
+    function render(){
+      updateAllCharts();
+      const q = els.q.value.trim().toLowerCase();
+      const rows = tx.filter(t=> !q || t.desc.toLowerCase().includes(q) || (t.category||'').toLowerCase().includes(q));
+      els.table.innerHTML = '';
+      let totalIncome=0, totalExpense=0;
+      rows.slice().reverse().forEach(t=>{
+        const tr = document.createElement('tr'); tr.className='row-anim';
+        const category = CATEGORIES.find(c => c.name === t.category) || CATEGORIES[0];
+        tr.innerHTML = `<td>${t.date}</td><td>${escapeHtml(t.desc)}</td><td><i class="${category.icon}"></i> ${escapeHtml(t.category)}</td><td class='amount ${t.type==='income'?'income':'expense'}'>${t.type==='income'?'+ ':'- '}${Number(t.amount).toFixed(2)} ₺</td><td><button data-id='${t.id}' data-action='edit' class='secondary'>Düzenle</button> <button data-id='${t.id}' class='secondary'>Sil</button></td>`;
+        els.table.appendChild(tr);
+        if(t.type==='income') totalIncome += Number(t.amount); else totalExpense += Number(t.amount);
+      });
+      const balance = totalIncome - totalExpense;
+      els.balance.textContent = balance.toFixed(2) + ' ₺';
+      els.income.textContent = totalIncome.toFixed(2) + ' ₺';
+      els.expense.textContent = totalExpense.toFixed(2) + ' ₺';
+      els.count.textContent = rows.length;
+      // handlers: edit/delete
+      Array.from(els.table.querySelectorAll('button')).forEach(b=> b.addEventListener('click', (e)=>{
+        const id = b.getAttribute('data-id'); const action = b.getAttribute('data-action'); if(action==='edit'){ startEdit(id); } else { if(confirm('Silinsin mi?')){ tx = tx.filter(x=>x.id!==id); save(); render(); } }
+      }));
+      drawChart();
+    }
+
+    function escapeHtml(s){ return String(s||'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":"&#39;"})[c]) }
+
+    // add / update
+    els.addBtn.addEventListener('click', ()=>{
+      const desc = els.desc.value.trim(); const amount = Number(els.amount.value); const type = els.type.value; const category = els.category.value; const date = els.date.value || new Date().toISOString().slice(0,10);
+      if(!desc || !amount || isNaN(amount)) { alert('Açıklama ve geçerli bir tutar girin.'); return; }
+      if(editId){ // update
+        const b = tx.find(x=>x.id===editId); if(b){ b.desc = desc; b.amount = Math.abs(amount); b.type = type; b.category = category; b.date = date; b.updated = Date.now(); }
+        editId = null; els.addBtn.textContent='Ekle';
+      } else {
+        const item = {id: uid(), desc, amount: Math.abs(amount), type, category, date, updated: Date.now()}; tx.push(item);
+      }
+      save(); render(); // clear inputs
+      els.desc.value=''; els.amount.value=''; els.date.value='';
+      Array.from(document.querySelectorAll('.chip')).forEach(c=>c.classList.remove('active'));
+    });
+
+    function startEdit(id){ const b = tx.find(x=>x.id===id); if(!b) return; editId = id; els.desc.value = b.desc; els.amount.value = b.amount; els.type.value = b.type; els.category.value = b.category; els.date.value = b.date; els.addBtn.textContent='Güncelle'; window.scrollTo({top:0,behavior:'smooth'}); }
+
+    els.clearBtn.addEventListener('click', ()=>{ els.desc.value=''; els.amount.value=''; els.date.value=''; els.type.value='expense'; els.category.value='Genel'; editId=null; els.addBtn.textContent='Ekle'; Array.from(document.querySelectorAll('.chip')).forEach(c=>c.classList.remove('active')); });
+    els.q.addEventListener('input', ()=> render());
+
+    // chart functions
+    function drawChart(){
+      const ctx = els.chart.getContext('2d'); 
+      const w = els.chart.width = els.chart.clientWidth; 
+      const h = els.chart.height = 140; 
+      ctx.clearRect(0,0,w,h);
+      
+      const totals = {}; 
+      tx.forEach(t=>{ 
+        totals[t.category] = (totals[t.category]||0) + (t.type==='income'? Number(t.amount) : -Number(t.amount)) 
+      });
+      
+      const entries = Object.entries(totals); 
+      if(entries.length===0) return;
+      
+      const max = Math.max(...entries.map(e=>Math.abs(e[1])));
+      const barW = Math.floor(w / entries.length) - 16;
+      
+      entries.forEach((e,i)=>{
+        const val = e[1]; 
+        const x = i*(barW+16)+12; 
+        const barH = Math.abs(val)/max * (h-50);
+        ctx.fillStyle = val>=0 ? 'rgba(16,185,129,0.9)' : 'rgba(239,68,68,0.95)';
+        const y = val>=0 ? (h-30-barH) : (h-30);
+        ctx.fillRect(x, y, barW, barH);
+        ctx.fillStyle='#475569'; 
+        ctx.font='12px Inter, sans-serif'; 
+        const category = CATEGORIES.find(c => c.name === e[0]) || CATEGORIES[0];
+        ctx.fillText(`${e[0]}`, x, h-8);
+      });
+    }
+
+    function drawMonthlyChart(){
+      const canvas = document.getElementById('monthlyChart');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth;
+      const h = canvas.height;
+      ctx.clearRect(0,0,w,h);
+
+      // Son 12 ayın verilerini topla
+      const monthlyData = {};
+      const now = new Date();
+      for(let i = 0; i < 12; i++) {
+        const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const key = date.toISOString().slice(0,7);
+        monthlyData[key] = {income: 0, expense: 0};
+      }
+
+      tx.forEach(t => {
+        const month = t.date.slice(0,7);
+        if(monthlyData[month]) {
+          if(t.type === 'income') {
+            monthlyData[month].income += Number(t.amount);
+          } else {
+            monthlyData[month].expense += Number(t.amount);
+          }
+        }
+      });
+
+      const months = Object.keys(monthlyData).sort();
+      const maxAmount = Math.max(...Object.values(monthlyData).flatMap(d => [d.income, d.expense]));
+      const barW = Math.floor(w / months.length) - 16;
+
+      months.forEach((month, i) => {
+        const x = i * (barW + 16) + 12;
+        const data = monthlyData[month];
+        
+        // Gelir barı
+        const incomeH = (data.income / maxAmount) * (h - 80);
+        ctx.fillStyle = 'rgba(16,185,129,0.9)';
+        ctx.fillRect(x, h - 40 - incomeH, barW/2, incomeH);
+        
+        // Gider barı
+        const expenseH = (data.expense / maxAmount) * (h - 80);
+        ctx.fillStyle = 'rgba(239,68,68,0.95)';
+        ctx.fillRect(x + barW/2, h - 40 - expenseH, barW/2, expenseH);
+        
+        // Ay etiketi
+        ctx.fillStyle = '#475569';
+        ctx.font = '12px Inter, sans-serif';
+        const monthName = new Date(month).toLocaleString('tr', {month: 'short'});
+        ctx.fillText(monthName, x, h - 10);
+
+        // Değerler
+        ctx.font = '10px Inter, sans-serif';
+        ctx.fillStyle = 'rgba(16,185,129,0.9)';
+        ctx.fillText(`+${data.income.toFixed(0)}`, x, h - 45 - incomeH);
+        ctx.fillStyle = 'rgba(239,68,68,0.95)';
+        ctx.fillText(`-${data.expense.toFixed(0)}`, x + barW/2, h - 45 - expenseH);
+      });
+    }
+
+    function drawYearlyChart(){
+      const canvas = document.getElementById('yearlyChart');
+      const ctx = canvas.getContext('2d');
+      const w = canvas.width = canvas.clientWidth;
+      const h = canvas.height;
+      ctx.clearRect(0,0,w,h);
+
+      // Yıllık verileri topla
+      const yearlyData = {};
+      const now = new Date();
+      for(let i = 0; i < 5; i++) {
+        const year = now.getFullYear() - i;
+        yearlyData[year] = {income: 0, expense: 0};
+      }
+
+      tx.forEach(t => {
+        const year = t.date.slice(0,4);
+        if(yearlyData[year]) {
+          if(t.type === 'income') {
+            yearlyData[year].income += Number(t.amount);
+          } else {
+            yearlyData[year].expense += Number(t.amount);
+          }
+        }
+      });
+
+      const years = Object.keys(yearlyData).sort();
+      const maxAmount = Math.max(...Object.values(yearlyData).flatMap(d => [d.income, d.expense]));
+      const barW = Math.floor(w / years.length) - 24;
+
+      years.forEach((year, i) => {
+        const x = i * (barW + 24) + 24;
+        const data = yearlyData[year];
+        
+        // Gelir barı
+        const incomeH = (data.income / maxAmount) * (h - 80);
+        ctx.fillStyle = 'rgba(16,185,129,0.9)';
+        ctx.fillRect(x, h - 40 - incomeH, barW/2, incomeH);
+        
+        // Gider barı
+        const expenseH = (data.expense / maxAmount) * (h - 80);
+        ctx.fillStyle = 'rgba(239,68,68,0.95)';
+        ctx.fillRect(x + barW/2, h - 40 - expenseH, barW/2, expenseH);
+        
+        // Yıl etiketi
+        ctx.fillStyle = '#475569';
+        ctx.font = '12px Inter, sans-serif';
+        ctx.fillText(year, x, h - 10);
+
+        // Net durum
+        const net = data.income - data.expense;
+        ctx.fillStyle = net >= 0 ? 'rgba(16,185,129,0.9)' : 'rgba(239,68,68,0.95)';
+        ctx.font = '11px Inter, sans-serif';
+        ctx.fillText(`${net >= 0 ? '+' : ''}${net.toFixed(0)}`, x, h - 25);
+      });
+    }
+
+    // export/import
+    document.getElementById('exportBtn').addEventListener('click', ()=>{
+      const data = JSON.stringify(tx, null, 2); const blob = new Blob([data],{type:'application/json'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download = 'transactions.json'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+    });
+    document.getElementById('importBtn').addEventListener('click', ()=> document.getElementById('importFile').click());
+    document.getElementById('importFile').addEventListener('change', (e)=>{
+      const f = e.target.files[0]; if(!f) return; const reader = new FileReader(); reader.onload = ()=>{
+        try{ const data = JSON.parse(reader.result); if(Array.isArray(data)){ tx = tx.concat(data.map(d=>({id: uid(), desc: d.desc||d.description||'', amount: Math.abs(Number(d.amount||0)), type: d.type||'expense', category: d.category||'Genel', date: d.date||new Date().toISOString().slice(0,10)}))); save(); render(); alert('İçe aktarma tamamlandı.'); }else alert('Dosya formatı beklenen JSON değil.'); }catch(err){ alert('İçe aktarma başarısız: '+err.message); }
+      }; reader.readAsText(f);
+    });
+
+    // init
+    initCategories(); 
+    load(); 
+    render(); 
+    
+    // Tüm grafikleri güncelle
+    function updateAllCharts() {
+      drawChart();
+      drawMonthlyChart();
+      drawYearlyChart();
+    }
+    
+    window.addEventListener('resize', updateAllCharts);
+    els.addBtn.addEventListener('click', updateAllCharts);
+    els.clearBtn.addEventListener('click', updateAllCharts);
+  </script>
+</body>
+</html>
